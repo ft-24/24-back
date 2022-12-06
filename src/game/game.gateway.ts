@@ -11,14 +11,20 @@ let PrivateGames: GameEngine[] = [];
 let LadderGames: GameEngine[] = [];
 
 @WebSocketGateway({
-  // namespace: 'game',
+  namespace: '24',
 })
 export class GameGateway
-  implements OnGatewayDisconnect {
-    constructor (private gameService: GameService)
-    {}
+  implements OnGatewayConnection, OnGatewayDisconnect {
+    constructor (
+      private gameService: GameService
+    ){}
+
     @WebSocketServer() nsp: Namespace;
     private logger = new Logger(GameGateway.name);
+
+    handleConnection(@ConnectedSocket() socket, ...args: any[]) {
+      this.logger.log(`Connected with : ${socket.data.user_id}`)
+    }
 
     @SubscribeMessage('refresh')
     sendBackRoomList(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
@@ -27,8 +33,9 @@ export class GameGateway
 
     @SubscribeMessage('queue')
     queuePlayer(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-      // LadderGames 에 현재 대기 중인 게임이 있는지 확인, 있다면 join 후 enter-room emit
-      // 대기 중인 게임이 없다면 LadderGames에 새로운 방 생성 후 join
+      this.logger.log(socket.data.sessionID)
+      this.logger.log(socket.data.room)
+      this.logger.log(socket.data.user_id)
     }
 
     @SubscribeMessage('make-room')

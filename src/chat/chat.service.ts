@@ -28,24 +28,24 @@ export class ChatService {
   async createNewRoom(room) {
     try {
       const foundRoom = await this.chatRoomRepository.findOneBy({ name: room.name });
+      const foundOwner = await this.userRepository.findOneBy({ intra_id: room.owner_id })
       if (!foundRoom) {
         let hash = "";
         if (room.password) {
           const salt = await bcrypt.genSalt();
           hash = await bcrypt.hash(room.password, salt);
         }
-        const newRoom = {
-          owner_id: room.owner_id,
+        const insertedRoom = await this.chatRoomRepository.insert({
+          owner_id: foundOwner.id,
           name: room.name,
           access_modifier: room.access_modifier,
           password: hash,
-          create_date: Date.now(),
-          update_date: Date.now(),
-        }
-        const insertedRoom = await this.chatRoomRepository.insert(newRoom);
-        return insertedRoom.raw[0];
+          create_date: new Date(),
+          update_date: new Date(),
+        });
+        return ``;
       }
-      return foundRoom;
+      return `Room named ${room.name} is already exists!`;
     } catch(e) {
 
     }

@@ -6,7 +6,7 @@ import { ChatService } from './chat.service';
 
 
 @WebSocketGateway({
-  namespace: 'session',
+  namespace: '24',
 })
 export class ChatGateway
   implements OnGatewayConnection {
@@ -78,7 +78,7 @@ export class ChatGateway
 
   @SubscribeMessage('create-room')
   async createRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-    this.chatService.createNewRoom(msg);
+    return await this.chatService.createNewRoom(msg);
   }
 
   @SubscribeMessage('edit-room')
@@ -86,7 +86,8 @@ export class ChatGateway
   }
 
   @SubscribeMessage('join-room')
-  joinRoom() {
+  joinRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+    
   }
 
   @SubscribeMessage('leave-room')

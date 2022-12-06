@@ -23,6 +23,14 @@ export class UserController {
     );
   }
 
+  @Get('profiles')
+  @UseGuards(JwtAuthGuard)
+  async getUsersInfo(@Res() res, @User() user) {
+    return res.status(200).send(
+      await this.userService.getUsersInfo(user)
+    );
+  }
+
   @Get('profile/:intra_id')
   @UseGuards(JwtAuthGuard)
   async getFriendsProfile(@Res() res, @Param('intra_id') id) {
@@ -58,6 +66,15 @@ export class UserController {
     }
     return res.status(200).send(
       await this.userService.getUserInfo(user)
+    );
+  }
+
+  @Put('friends')
+  @UseGuards(JwtAuthGuard)
+  async updateUserFriends(@Res() res, @User() user, @Body() body) {
+    const { nickname } = body;
+    return res.status(200).send(
+      await this.userService.addUserFriend(user, nickname),
     );
   }
 }

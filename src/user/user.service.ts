@@ -47,6 +47,22 @@ export class UserService {
 		return await this.getInfo(foundUser);
   }
 
+	async getUsersInfo(user) {
+		const foundUsers = await this.userRepository.find()
+		const friends = await this.friendRepository.findBy({ user_id: user.user_id })
+		let users = [];
+		foundUsers.forEach(u => {
+			if (user.user_id != u.id) {
+				users.push({
+					intra_id: u.intra_id,
+					nickname: u.nickname,
+					is_friend: friends.find((f) => { if (f.target_user_id == u.id) { return true; } }) != undefined ? true : false,
+				})
+			}
+		})
+		return (users);
+  }
+
 	async getUserMatchHistory(user) {
 		const matching_history = [];
 		const matchList = await this.matchHistoryRepository.findBy({ user_id: user.id });
@@ -70,10 +86,12 @@ export class UserService {
 		const ret = [];
 		for(let ind in friendList) {
 			let friend = await this.userRepository.findOneBy({ id: friendList[ind].target_user_id })
-			ret.push({
-				nickname: friend.nickname,
-				online: true,
-			})
+			if (friend) {
+				ret.push({
+					nickname: friend.nickname,
+					online: friend.online,
+				})
+			}
 		}
 		return ret;
   }
@@ -113,6 +131,17 @@ export class UserService {
 		const foundUser = await this.userRepository.findOneBy({ id: user.user_id })
 		if (foundUser) {
 			await this.userRepository.update(foundUser, { profile_url: `${this.configService.get('url')}/${file.path}` });
+		}
+	}
+
+	async addUserFriend(user, friend) {
+		const foundUser = await this.userRepository.findOneBy({ id: user.user_id })
+		const foundFriend = await this.userRepository.findOneBy({ intra_id: friend })
+		if (foundUser && foundFriend) {
+			this.friendRepository.insert({
+				user_id: foundUser.id,
+				target_user_id: foundFriend.id,
+			});
 		}
 	}
 
