@@ -4,6 +4,7 @@ import { Namespace, Socket } from 'socket.io';
 import { GameService } from './game.service';
 import { Direction } from './lib/lib/Directions';
 import GameEngine from './lib/lib/GameEngine';
+import { v4 as uuid } from 'uuid';
 
 let Games: GameEngine[] = [];
 let PrivateGames: GameEngine[] = [];
@@ -21,7 +22,7 @@ export class GameGateway
 
     @SubscribeMessage('refresh')
     sendBackRoomList(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-      // 방 리스트 리턴
+      socket.emit('list', this.gameService.getPublicRooms(Games, socket));
     }
 
     @SubscribeMessage('queue')
@@ -32,6 +33,12 @@ export class GameGateway
 
     @SubscribeMessage('make-room')
     makeRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+      if (msg.access_modifier == 'public') {
+        const newRoomID = uuid();
+        const creadtedGame = Games.push(new GameEngine(msg.id, newRoomID, msg.access_modifier));
+        Games[creadtedGame - 1].join(socket);
+        socket.join(newRoomID);
+      }
       // msg에 포함된 name과 임의로 생성한 id로 새로운 게임 생성, 그 후 join
       // room이 새로 생겼으므로 모든 소켓에게 새로운 방이 생성되었음을 emit, id & name
     }
@@ -51,12 +58,15 @@ export class GameGateway
 
     @SubscribeMessage('ready')
     playerReady(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+      const joinedGame = this.gameService.getJoinedGame([...Games, ...PrivateGames, ...LadderGames], socket);
+      joinedGame.ready();
       // socket이 join 되어있는 게임을 받고, 해당 게임의 ready 함수를 소켓과 상태를 파라미터로 호출
     }
 
     @SubscribeMessage('move')
     movePlayer(@ConnectedSocket() socket: Socket, @MessageBody() dir: Direction) {
-      // socket이 join 되어있는 게임을 받고, 해당 게임의 move 함수를 소켓과 방향을 파라미터로 호출
+      const joinedGame = this.gameService.getJoinedGame([...Games, ...PrivateGames, ...LadderGames], socket);
+      joinedGame.move(socket, dir);
     }
 
     handleDisconnect(@ConnectedSocket() socket: Socket) {

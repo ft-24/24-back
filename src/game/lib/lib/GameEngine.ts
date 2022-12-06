@@ -13,12 +13,19 @@ namespace Pong {
     private scene!: Scene;
     private id: string;
     private name: string;
+    private acc: string;
     private nsp: Namespace;
     private player1: Socket = undefined;
     private player2: Socket = undefined;
+    private player1_id: number = undefined;
+    private player2_id: number = undefined;
+    private spec_id: number[] = [];
     private ended: boolean = false;
 
-    constructor() {
+    constructor(id: string, name: string, acc: string) {
+      this.id = id;
+      this.name = name;
+      this.acc = acc;
     }
     
     start(gameService: GameService) {
@@ -56,8 +63,12 @@ namespace Pong {
       socket.join(this.id)
       if (this.player1 == undefined) {
         this.player1 = socket;
+        this.player1_id = socket.data.user_id;
       } else if (this.player2 == undefined) {
         this.player2 = socket;
+        this.player2_id = socket.data.user_id;
+      } else {
+        this.spec_id.push(socket.data.user_id)
       }
     }
 
@@ -74,17 +85,12 @@ namespace Pong {
       this.ended = true;
     }
 
-    getPlayer1() {
-      if (this.player1) {
-        return this.player1.id;
-      }
-    }
-
-    getPlayer2() {
-      if (this.player2) {
-        return this.player2.id;
-      }
-    }
+    getPlayer1() { if (this.player1) { return this.player1_id; }}
+    getPlayer2() { if (this.player2) { return this.player2_id; }}
+    getSpec() { return this.spec_id }
+    getID() { return this.id }
+    getName() { return this.name }
+    getAccess() { return this.acc }
 
     loadScene(newScene: Scene, params?: object) {
       // If a scene has been loaded already, unload it

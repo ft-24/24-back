@@ -102,8 +102,8 @@ namespace Pong {
 
       if (this.player1.getScore() >= this.winningScore || this.player2.getScore() >= this.winningScore) {
         this.gameContext.gameResult(await this.gameService.insertGameResult({
-          user1_id: 1,
-          user2_id: 2,
+          user1_id: this.gameContext.getPlayer1(),
+          user2_id: this.gameContext.getPlayer2(),
           win: (this.player1.getScore() >= this.player2.getScore()) ? 1 : 2,
           user1_score: this.player1.getScore(),
           user2_score: this.player2.getScore(),
