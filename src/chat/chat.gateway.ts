@@ -9,7 +9,7 @@ import { ChatService } from './chat.service';
   namespace: '24',
 })
 export class ChatGateway
-  implements OnGatewayConnection {
+  implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private chatService: ChatService,
     private jwtService: JwtService
@@ -49,11 +49,16 @@ export class ChatGateway
       }
 
       this.logger.log(`sessionID is now : ${socket.data.sessionID}`);
+      this.chatService.userOnline(socket.data.user_id)
       socket.emit("session", { sessionID: socket.data.sessionID, userID: socket.data.room });
       socket.join(socket.data.room);
     } catch (e) {
       this.logger.log(`Error occured! ${e}`)
     }
+  }
+
+  handleDisconnect(@ConnectedSocket() socket: Socket) {
+    this.chatService.userOffline(socket.data.user_id)
   }
 
   @SubscribeMessage('dm-message')

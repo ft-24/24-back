@@ -30,10 +30,20 @@ export class GameService {
     });
   }
 
+  getGameById(g: GameEngine[], id: string) {
+    let game: GameEngine = undefined;
+    g.forEach(room => { if (room.getID() == id) { game = room; }})
+    return game;
+  }
+
   getJoinedGame(g: GameEngine[], player: Socket) {
     let game: GameEngine = undefined;
     g.forEach(room => { if (player.rooms.has(room.getID())) { game = room; }})
     return game;
+  }
+
+  getInfoByGame(g: GameEngine) {
+    
   }
 
   getPublicRooms(g: GameEngine[], socket) {
@@ -55,6 +65,15 @@ export class GameService {
       })
     })
     return list;
+  }
+
+  matchMaking(g: GameEngine[]): GameEngine {
+    g.forEach(room => {
+      if (!room.getPlayer2()) {
+        return room;
+      }
+    })
+    return undefined;
   }
 
   async getUserInfo(user, user_id) {

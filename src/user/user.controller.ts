@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Head, Headers, Logger, Param, Put, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Head, Headers, Logger, Param, Put, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
 import { User } from 'src/auth/user.decorator';
@@ -72,9 +72,18 @@ export class UserController {
   @Put('friends')
   @UseGuards(JwtAuthGuard)
   async updateUserFriends(@Res() res, @User() user, @Body() body) {
-    const { nickname } = body;
+    const { intra_id } = body;
     return res.status(200).send(
-      await this.userService.addUserFriend(user, nickname),
+      await this.userService.addUserFriend(user, intra_id),
+    );
+  }
+
+  @Delete('friends')
+  @UseGuards(JwtAuthGuard)
+  async deleteUserFriends(@Res() res, @User() user, @Body() body) {
+    const { intra_id } = body;
+    return res.status(200).send(
+      await this.userService.removeUserFriend(user, intra_id),
     );
   }
 }

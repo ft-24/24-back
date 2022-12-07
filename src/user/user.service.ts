@@ -88,6 +88,7 @@ export class UserService {
 			let friend = await this.userRepository.findOneBy({ id: friendList[ind].target_user_id })
 			if (friend) {
 				ret.push({
+					intra_id: friend.intra_id,
 					nickname: friend.nickname,
 					online: friend.online,
 				})
@@ -143,6 +144,12 @@ export class UserService {
 				target_user_id: foundFriend.id,
 			});
 		}
+	}
+
+	async removeUserFriend(user, friend) {
+		const foundFriend = await this.userRepository.findOneBy({ intra_id: friend });
+		const foundFriendList = await this.friendRepository.findOneBy({ user_id: user.user_id, target_user_id: foundFriend.id });
+		await this.friendRepository.delete(foundFriendList)
 	}
 
 }

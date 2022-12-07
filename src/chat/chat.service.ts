@@ -71,6 +71,14 @@ export class ChatService {
     }
   }
 
+  async userOnline(user) {
+    await this.userRepository.update({ id: user }, { online: true })
+  }
+
+  async userOffline(user) {
+    await this.userRepository.update({ id: user }, { online: false })
+  }
+
   async saveDM(socket, msg) {
     this.logger.log(socket.data)
     this.logger.log(socket.data.user_id)
