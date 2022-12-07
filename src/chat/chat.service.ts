@@ -8,6 +8,7 @@ import { DmChannelEntity } from './entity/dmChannel.entity';
 import { v4 as uuid } from 'uuid';
 import { DMEntity } from './entity/dm.entity';
 import { UserEntity } from 'src/user/entity/user.entity';
+import { Socket } from 'socket.io';
 
 @Injectable()
 export class ChatService {
@@ -25,10 +26,10 @@ export class ChatService {
   ){}
   private logger = new Logger(ChatService.name);
 
-  async createNewRoom(room) {
+  async createNewRoom(socket: Socket, room) {
     try {
       const foundRoom = await this.chatRoomRepository.findOneBy({ name: room.name });
-      const foundOwner = await this.userRepository.findOneBy({ intra_id: room.owner_id })
+      const foundOwner = await this.userRepository.findOneBy({ id: socket.data.user_id })
       if (!foundRoom) {
         let hash = "";
         if (room.password) {
@@ -118,6 +119,23 @@ export class ChatService {
       chat: msg.msg,
       time: (new Date()).toString(),
     })
+  }
+
+  async getChat(room) {
+    const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
+    const foundChats = await this.chatRepository.findBy({ room_id: foundRoom.id })
+    let chats = [];
+    foundChats.forEach(async (c) => {
+      const foundSender = await this.userRepository.findOneBy({ id: c.sender })
+      chats.push({
+        intra_id: foundSender.intra_id,
+        profile_url: foundSender.profile_url,
+        nickname: foundSender.nickname,
+        chat: c.chat,
+        time: (c.time).toString(),
+      })
+    })
+    return chats;
   }
 
   async findRoom(nickname) {

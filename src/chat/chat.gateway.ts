@@ -20,14 +20,14 @@ export class ChatGateway
 
   async handleConnection(@ConnectedSocket() socket: Socket, @MessageBody() msg: any) {
 
-    this.logger.log('connected!');
+    // this.logger.log('connected!');
 
     try {
       const sessionID = socket.handshake.auth.sessionID;
-      this.logger.log(`Checking for sessionID : ${sessionID}`);
+      // this.logger.log(`Checking for sessionID : ${sessionID}`);
 
       if (sessionID && sessionID != "null" && sessionID != "undefined") {
-        this.logger.log('handshaken!');
+        // this.logger.log('handshaken!');
 
         const session = await this.chatService.findUser(sessionID);
         if (session) {
@@ -48,7 +48,7 @@ export class ChatGateway
         socket.data.user_id = newUser.user_id;
       }
 
-      this.logger.log(`sessionID is now : ${socket.data.sessionID}`);
+      // this.logger.log(`sessionID is now : ${socket.data.sessionID}`);
       this.chatService.userOnline(socket.data.user_id)
       socket.emit("session", { sessionID: socket.data.sessionID, userID: socket.data.room });
       socket.join(socket.data.room);
@@ -83,7 +83,11 @@ export class ChatGateway
 
   @SubscribeMessage('create-room')
   async createRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-    return await this.chatService.createNewRoom(msg);
+    const roomStatus = await this.chatService.createNewRoom(socket, msg);
+    if (roomStatus == ``) {
+      socket.join(msg.name);
+    }
+    return roomStatus;
   }
 
   @SubscribeMessage('edit-room')
@@ -91,8 +95,12 @@ export class ChatGateway
   }
 
   @SubscribeMessage('join-room')
-  joinRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-    
+  async joinRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+    const messages = await this.chatService.getChat(msg.room);
+    messages.forEach((m) => {
+      socket.emit('message', m);
+    })
+    socket.join(msg.room);
   }
 
   @SubscribeMessage('leave-room')
