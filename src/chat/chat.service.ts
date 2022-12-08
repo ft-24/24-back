@@ -9,6 +9,7 @@ import { v4 as uuid } from 'uuid';
 import { DMEntity } from './entity/dm.entity';
 import { UserEntity } from 'src/user/entity/user.entity';
 import { Socket } from 'socket.io';
+import { ChatInfoEntity } from './entity/chatInfo.entity';
 
 @Injectable()
 export class ChatService {
@@ -23,6 +24,8 @@ export class ChatService {
     private dmRepository: Repository<DMEntity>,
     @InjectRepository(DmChannelEntity)
     private dmChannelRepository: Repository<DmChannelEntity>,
+    @InjectRepository(ChatInfoEntity)
+    private chatInfoRepository: Repository<ChatInfoEntity>,
   ){}
   private logger = new Logger(ChatService.name);
 
@@ -35,6 +38,7 @@ export class ChatService {
         if (room.password) {
           const salt = await bcrypt.genSalt();
           hash = await bcrypt.hash(room.password, salt);
+          this.logger.log(`Generated pass : [${hash}] by [${room.password}]`)
         }
         const insertedRoom = await this.chatRoomRepository.insert({
           owner_id: foundOwner.id,
@@ -81,17 +85,17 @@ export class ChatService {
   }
 
   async saveDM(socket, msg) {
-    this.logger.log(socket.data)
-    this.logger.log(socket.data.user_id)
+    this.logger.log(`user_id is: ${socket.data.user_id}`)
     const sender = await this.userRepository.findOneBy({ id: socket.data.user_id })
     const receiver = await this.userRepository.findOneBy({ nickname: msg.receiver })
-    const insertedDM = await this.dmRepository.insert({
-      sender: sender.id,
-      receiver: receiver.id,
-      chat: msg.msg,
-      time: new Date(),
-    });
-    this.logger.log(sender.intra_id)
+    if (sender && receiver) {
+      const insertedDM = await this.dmRepository.insert({
+        sender: sender.id,
+        receiver: receiver.id,
+        chat: msg.msg,
+        time: new Date(),
+      });
+    }
     return ({
       intra_id: sender.intra_id,
       profile_url: sender.profile_url,
@@ -125,7 +129,7 @@ export class ChatService {
     const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
     const foundChats = await this.chatRepository.findBy({ room_id: foundRoom.id })
     let chats = [];
-    foundChats.forEach(async (c) => {
+    for (const c of foundChats) {
       const foundSender = await this.userRepository.findOneBy({ id: c.sender })
       chats.push({
         intra_id: foundSender.intra_id,
@@ -134,12 +138,34 @@ export class ChatService {
         chat: c.chat,
         time: (c.time).toString(),
       })
-    })
+    }
     return chats;
+  }
+
+  async joinChat(user, room) {
+    const foundUser = await this.userRepository.findOneBy({ id: user })
+    const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
+    const foundInfo = await this.chatInfoRepository.findOneBy({ user_id: foundUser.id, room_id: foundRoom.id })
+    if (foundUser && foundRoom && !foundInfo) {
+      await this.chatInfoRepository.insert({
+        user_id: foundUser.id,
+        room_id: foundRoom.id,
+      })
+    }
   }
 
   async findRoom(nickname) {
     const userId = (await this.userRepository.findOneBy({ nickname: nickname })).id;
     return (await this.dmChannelRepository.findOneBy({ user_id: userId })).room;
+  }
+
+  async getUserBySocket(socket: Socket) {
+    if (socket.data.intra_id) {
+      const foundUser = await this.userRepository.findOneBy({ id: socket.data.intra_id });
+      if (foundUser) {
+        return foundUser
+      }
+    }
+    return undefined;
   }
 }

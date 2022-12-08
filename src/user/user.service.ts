@@ -123,7 +123,7 @@ export class UserService {
 
 	async changeUserArcade(user, arcade) {
 		const foundUserStats = await this.userStatsRepository.findOneBy({ user_id: user.user_id })
-		if (foundUserStats) {
+		if (foundUserStats && arcade >= foundUserStats.arcade_score) {
 			await this.userStatsRepository.update(foundUserStats, { arcade_score: arcade });
 		}
 	}

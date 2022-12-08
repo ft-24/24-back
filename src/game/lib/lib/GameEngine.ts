@@ -17,12 +17,10 @@ namespace Pong {
     private nsp: Namespace;
     private player1: Socket = undefined;
     private player2: Socket = undefined;
-    private player1_id: number = undefined;
-    private player2_id: number = undefined;
     private p1_ready: boolean = false;
     private p2_ready: boolean = false;
-    private spec_id: number[] = [];
-    private ended: boolean = false;
+    private spec: Map<string, Socket> = new Map();
+    private ended: boolean = true;
 
     constructor(id: string, name: string, acc: string, nsp: Namespace) {
       this.id = id;
@@ -37,20 +35,22 @@ namespace Pong {
       let timestamp: number = startTime;
 
       this.loadScene(menu);
+      this.ended = false;
 
-      setInterval(() => {
-        if (!this.ended) {
-          let deltaTime = (startTime - timestamp) * 0.06;
-          this.scene.update(deltaTime);
-          
-          const draw = this.scene.draw();
-          if (draw['ball']) {
-            this.nsp.to(this.id).emit('draw', draw);
-          }
-         
-          timestamp = startTime;
-          startTime = Date.now();
+      const i = setInterval(() => {
+        if (this.ended) {
+          clearInterval(i);
         }
+        let deltaTime = (startTime - timestamp) * 0.06;
+        this.scene.update(deltaTime);
+          
+        const draw = this.scene.draw();
+        if (draw['ball']) {
+          this.nsp.to(this.id).emit('draw', draw);
+        }
+         
+        timestamp = startTime;
+        startTime = Date.now();
       }, 1000 / 60); // 60 == FPS
     }
 
@@ -73,29 +73,34 @@ namespace Pong {
 
     disconnect(socket: Socket) {
       socket.leave(this.id)
-      console.log('hoi');
-      if (socket == this.player1 || socket == this.player2) {
-        // 방 깨트리기
-        console.log('hi');
-        
+      if (socket == this.player1) {
+        if (this.ended == false) {
+          this.scene.end(2);
+          this.ended = true;
+        }
+        this.nsp.to(this.id).emit('quit', null);
+        return true;
+      } else if (socket == this.player2) {
         this.player2 = undefined;
-        this.player2_id = undefined;
+        this.p2_ready = false;
+        if (this.ended == false) {
+          this.scene.end(1);
+          this.ended = true;
+        }
       } else {
-        console.log('hei');
-        // this.spec_id.splice(this.spec_id.findIndex(socket.data.user_id), 1);
+        this.spec.delete(socket.data.room);
       }
+      return false;
     }
 
     join(socket: Socket) {
       socket.join(this.id)
       if (this.player1 == undefined) {
         this.player1 = socket;
-        this.player1_id = socket.data.user_id;
       } else if (this.player2 == undefined) {
         this.player2 = socket;
-        this.player2_id = socket.data.user_id;
       } else {
-        this.spec_id.push(socket.data.user_id)
+        this.spec.set(socket.data.room, socket)
       }
     }
 
@@ -111,12 +116,21 @@ namespace Pong {
 
     gameResult(result) {
       this.nsp.to(this.id).emit('result', result);
+      this.nsp.to(this.id).emit('reset', null);
+      this.p1_ready = false;
+      this.p2_ready = false;
       this.ended = true;
     }
 
-    getPlayer1() { if (this.player1) { return this.player1_id; }}
-    getPlayer2() { if (this.player2) { return this.player2_id; }}
-    getSpec() { return this.spec_id }
+    getPlayer1() { if (this.player1) { return this.player1; }}
+    getPlayer2() { if (this.player2) { return this.player2; }}
+    getSpec() {
+      let s: Socket[] = [];
+      for (const m of this.spec) {
+        s.push(m[1]);
+      }
+      return s;
+    }
     getID() { return this.id }
     getName() { return this.name }
     getAccess() { return this.acc }

@@ -5,7 +5,7 @@ import { ChannelService } from "./channels.service";
 import { ChatEntity } from "./entity/chat.entity";
 import { ChatRoomEntity } from "./entity/chatRoom.entity";
 import { DMEntity } from "./entity/dm.entity";
-import { RoomUserInfoEntity } from "./entity/RoomUserInfo.entity";
+import { ChatInfoEntity } from "./entity/chatInfo.entity";
 import { UserEntity } from "src/user/entity/user.entity";
 import { OauthTokenEntity } from "src/auth/entity/oauthToken.entity";
 import { FriendListEntity } from "src/user/entity/friendList.entity";
@@ -13,7 +13,7 @@ import { UserStatsEntity } from "src/user/entity/userStats.entity";
 
 @Module({
 	imports: [
-	  TypeOrmModule.forFeature([ChatRoomEntity, ChatEntity, DMEntity, RoomUserInfoEntity]),
+	  TypeOrmModule.forFeature([UserEntity, ChatEntity, ChatRoomEntity, ChatInfoEntity, DMEntity]),
 	],
 	controllers: [ChannelsController],
 	providers: [ChannelService],

@@ -78,6 +78,10 @@ export class ChatGateway
     if (msg.msg && msg.receiver) {
       const insertedMSG = await this.chatService.saveChat(socket, msg);
       socket.to(msg.receiver).emit('message', insertedMSG);
+      // const clients = this.nsp.adapter.rooms.get(msg.receiver)
+      // for (const c of clients) {
+
+      // }
     }
   }
 
@@ -96,14 +100,26 @@ export class ChatGateway
 
   @SubscribeMessage('join-room')
   async joinRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-    const messages = await this.chatService.getChat(msg.room);
-    messages.forEach((m) => {
-      socket.emit('message', m);
-    })
-    socket.join(msg.room);
+    this.logger.log(`Someone joined room named ${msg.name}!`)
+
+    await this.chatService.joinChat(socket.data.user_id, msg.name);
+    const messages = await this.chatService.getChat(msg.name);
+    const user = await this.chatService.getUserBySocket(socket);
+    socket.emit('messages', messages);
+    if (user) {
+      socket.to(msg.name).emit('fetch', user.nickname);
+    }
+    socket.join(msg.name);
   }
 
   @SubscribeMessage('leave-room')
-  leaveRoom() {
+  async leaveRoom(@ConnectedSocket() socket:Socket, @MessageBody() msg) {
+    this.logger.log(`Someone leaved room named ${msg.name}!`)
+
+    const user = await this.chatService.getUserBySocket(socket);
+    if (user) {
+      socket.to(msg.name).emit('fetch', user.nickname);
+    }
+    socket.leave(msg.name)
   }
 }
