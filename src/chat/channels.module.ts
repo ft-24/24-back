@@ -7,7 +7,6 @@ import { ChatRoomEntity } from "./entity/chatRoom.entity";
 import { DMEntity } from "./entity/dm.entity";
 import { ChatInfoEntity } from "./entity/chatInfo.entity";
 import { UserEntity } from "src/user/entity/user.entity";
-import { OauthTokenEntity } from "src/auth/entity/oauthToken.entity";
 import { FriendListEntity } from "src/user/entity/friendList.entity";
 import { UserStatsEntity } from "src/user/entity/userStats.entity";
 

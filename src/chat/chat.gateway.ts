@@ -19,16 +19,9 @@ export class ChatGateway
   private logger = new Logger(ChatGateway.name);
 
   async handleConnection(@ConnectedSocket() socket: Socket, @MessageBody() msg: any) {
-
-    // this.logger.log('connected!');
-
     try {
       const sessionID = socket.handshake.auth.sessionID;
-      // this.logger.log(`Checking for sessionID : ${sessionID}`);
-
       if (sessionID && sessionID != "null" && sessionID != "undefined") {
-        // this.logger.log('handshaken!');
-
         const session = await this.chatService.findUser(sessionID);
         if (session) {
           socket.data.sessionID = sessionID;
@@ -47,9 +40,6 @@ export class ChatGateway
         socket.data.room = newUser.room;
         socket.data.user_id = newUser.user_id;
       }
-
-      // this.logger.log(`sessionID is now : ${socket.data.sessionID}`);
-      this.chatService.userOnline(socket.data.user_id)
       socket.emit("session", { sessionID: socket.data.sessionID, userID: socket.data.room });
       socket.join(socket.data.room);
     } catch (e) {
@@ -68,8 +58,8 @@ export class ChatGateway
       const insertedMSG = await this.chatService.saveDM(socket, msg);
       const to = await this.chatService.findRoom(msg.receiver);
       this.logger.log(to);
-      socket.to(socket.data.room).to(to).emit("dm-message", insertedMSG)
-      // socket.to(to).emit('dm-message', insertedMSG)
+      socket.to(socket.data.room).emit("dm-message", insertedMSG)
+      socket.to(to).emit('dm-message', insertedMSG)
     }
   }
 

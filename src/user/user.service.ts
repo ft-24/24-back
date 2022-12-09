@@ -1,7 +1,6 @@
 import { Headers, Injectable, Logger, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { OauthTokenEntity } from 'src/auth/entity/oauthToken.entity';
 import { Repository } from 'typeorm';
 import { UserInfoDto } from './dto/userInfo.dto';
 import { FriendListEntity } from './entity/friendList.entity';
@@ -15,7 +14,6 @@ export class UserService {
 		@InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
 		@InjectRepository(UserStatsEntity) private userStatsRepository: Repository<UserStatsEntity>,
 		@InjectRepository(MatchHistoryEntity) private matchHistoryRepository: Repository<MatchHistoryEntity>,
-		@InjectRepository(OauthTokenEntity) private tokenRepository: Repository<OauthTokenEntity>,
 		@InjectRepository(FriendListEntity) private friendRepository: Repository<FriendListEntity>,
 		private readonly configService: ConfigService,
 	) {}
