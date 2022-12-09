@@ -10,6 +10,8 @@ import { DMEntity } from './entity/dm.entity';
 import { UserEntity } from 'src/user/entity/user.entity';
 import { Socket } from 'socket.io';
 import { ChatInfoEntity } from './entity/chatInfo.entity';
+import { BlockedUserEntity } from 'src/user/entity/blockedUser.entity';
+import { DmListEntity } from './entity/dmList.entity';
 
 @Injectable()
 export class ChatService {
@@ -24,8 +26,12 @@ export class ChatService {
     private dmRepository: Repository<DMEntity>,
     @InjectRepository(DmChannelEntity)
     private dmChannelRepository: Repository<DmChannelEntity>,
+    @InjectRepository(DmListEntity)
+    private dmListRepository: Repository<DmListEntity>,
     @InjectRepository(ChatInfoEntity)
     private chatInfoRepository: Repository<ChatInfoEntity>,
+    @InjectRepository(BlockedUserEntity)
+    private blockedUserRepository: Repository<BlockedUserEntity>,
   ){}
   private logger = new Logger(ChatService.name);
 
@@ -38,7 +44,6 @@ export class ChatService {
         if (room.password) {
           const salt = await bcrypt.genSalt();
           hash = await bcrypt.hash(room.password, salt);
-          this.logger.log(`Generated pass : [${hash}] by [${room.password}]`)
         }
         const insertedRoom = await this.chatRoomRepository.insert({
           owner_id: foundOwner.id,
@@ -51,6 +56,52 @@ export class ChatService {
         return ``;
       }
       return `Room named ${room.name} is already exists!`;
+    } catch(e) {
+
+    }
+  }
+
+  async createDM(socket: Socket, intra) {
+    try {
+      const foundOther = await this.userRepository.findOneBy({ intra_id: intra })
+      const foundDM = await this.dmListRepository.findOneBy({ user1_id: socket.data.user_id, user2_id: foundOther.id });
+      if (!foundDM) {
+        await this.dmListRepository.insert({
+          user1_id: socket.data.user_id,
+          user2_id: foundOther.id,
+        });
+        await this.dmListRepository.insert({
+          user1_id: foundOther.id,
+          user2_id: socket.data.user_id,
+        });
+        return ``;
+      }
+      return `DM is already exists!`;
+    } catch(e) {
+
+    }
+  }
+
+  async updateNewRoom(socket: Socket, room) {
+    try {
+      const foundRoom = await this.chatRoomRepository.findOneBy({ name: room.name });
+      if (foundRoom && socket.data.user_id == foundRoom.owner_id) {
+        let hash = "";
+        if (room.password) {
+          const salt = await bcrypt.genSalt();
+          hash = await bcrypt.hash(room.password, salt);
+        } else {
+          hash = foundRoom.password;
+        }
+        await this.chatRoomRepository.update(foundRoom, {
+          name: room.name,
+          access_modifier: room.access_modifier,
+          password: hash,
+          update_date: new Date(),
+        })
+        return ``;
+      }
+      return `Room named ${room.name} doesn't exist!`;
     } catch(e) {
 
     }
@@ -85,7 +136,6 @@ export class ChatService {
   }
 
   async saveDM(socket, msg) {
-    this.logger.log(`user_id is: ${socket.data.user_id}`)
     const sender = await this.userRepository.findOneBy({ id: socket.data.user_id })
     const receiver = await this.userRepository.findOneBy({ nickname: msg.receiver })
     if (sender && receiver) {
@@ -125,38 +175,76 @@ export class ChatService {
     })
   }
 
-  async getChat(room) {
-    const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
-    const foundChats = await this.chatRepository.findBy({ room_id: foundRoom.id })
+  async getChat(socket, room) {
     let chats = [];
-    for (const c of foundChats) {
-      const foundSender = await this.userRepository.findOneBy({ id: c.sender })
-      chats.push({
-        intra_id: foundSender.intra_id,
-        profile_url: foundSender.profile_url,
-        nickname: foundSender.nickname,
-        chat: c.chat,
-        time: (c.time).toString(),
-      })
+    const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
+    if (foundRoom) {
+      const foundChats = await this.chatRepository.findBy({ room_id: foundRoom.id })
+      for (const c of foundChats) {
+        const foundSender = await this.userRepository.findOneBy({ id: c.sender })
+        if (!await this.isBlocked(socket.data.user_id, foundSender.id)) {
+          chats.push({
+            intra_id: foundSender.intra_id,
+            profile_url: foundSender.profile_url,
+            nickname: foundSender.nickname,
+            chat: c.chat,
+            time: (c.time).toString(),
+          })
+        }
+      }
     }
     return chats;
+  }
+
+  async getDM(socket, intra) {
+    let dms = [];
+    const foundSender = await this.userRepository.findOneBy({ intra_id: intra })
+    if (foundSender && !await this.isBlocked(socket.data.user_id, foundSender.id)) {
+      const foundDMs = await this.dmRepository.find({
+        where: [
+          { sender: socket.data.user_id, receiver: foundSender.id },
+          { sender: foundSender.id, receiver: socket.data.user_id }
+        ], 
+      })
+      for (const dm of foundDMs) {
+        dms.push({
+          intra_id: foundSender.intra_id,
+          profile_url: foundSender.profile_url,
+          nickname: foundSender.nickname,
+          chat: dm.chat,
+          time: (dm.time).toString(),
+        })
+      }
+    }
+    return dms;
   }
 
   async joinChat(user, room) {
     const foundUser = await this.userRepository.findOneBy({ id: user })
     const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
-    const foundInfo = await this.chatInfoRepository.findOneBy({ user_id: foundUser.id, room_id: foundRoom.id })
-    if (foundUser && foundRoom && !foundInfo) {
-      await this.chatInfoRepository.insert({
-        user_id: foundUser.id,
-        room_id: foundRoom.id,
-      })
+    if (foundUser && foundRoom) {
+      const foundInfo = await this.chatInfoRepository.findOneBy({ user_id: foundUser.id, room_id: foundRoom.id })
+      if (!foundInfo) {
+        await this.chatInfoRepository.insert({
+          user_id: foundUser.id,
+          room_id: foundRoom.id,
+        })
+      }
     }
   }
 
   async findRoom(nickname) {
-    const userId = (await this.userRepository.findOneBy({ nickname: nickname })).id;
-    return (await this.dmChannelRepository.findOneBy({ user_id: userId })).room;
+    const foundUser = (await this.userRepository.findOneBy({ nickname: nickname }));
+    if (foundUser) {
+      return (await this.dmChannelRepository.findOneBy({ user_id: foundUser.id })).room;
+    }
+  }
+
+  async findRoomByIntra(intra_id) {
+    const foundUser = (await this.userRepository.findOneBy({ intra_id: intra_id }));
+    if (foundUser) {
+      return (await this.dmChannelRepository.findOneBy({ user_id: foundUser.id })).room;
+    }
   }
 
   async getUserBySocket(socket: Socket) {
@@ -168,4 +256,102 @@ export class ChatService {
     }
     return undefined;
   }
+
+  async isBlocked(user: number, target: number) {
+    const foundBlock = await this.blockedUserRepository.findOneBy({ user_id: user, target_user_id: target});
+    if (foundBlock) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  async isBlockedByNickname(user: string, target: number) {
+    const foundUser = await this.userRepository.findOneBy({ nickname: user });
+    if (foundUser) {
+      const foundBlock = await this.blockedUserRepository.findOneBy({ user_id: foundUser.id, target_user_id: target});
+      if (foundBlock) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  async isBlockedByIntra(user: string, target: number) {
+    const foundUser = await this.userRepository.findOneBy({ intra_id: user });
+    if (foundUser) {
+      const foundBlock = await this.blockedUserRepository.findOneBy({ user_id: foundUser.id, target_user_id: target});
+      if (foundBlock) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  async findTo(intra) {
+    const foundUser = await this.userRepository.findOneBy({ intra_id: intra });
+    if (foundUser) {
+      const foundDMch = await this.dmChannelRepository.findOneBy({ user_id: foundUser.id });
+      if (foundDMch) {
+        return foundDMch.room;
+      }
+    }
+    return undefined;
+  }
+
+  async checkBan(socket, room) {
+    const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
+    if (foundRoom) {
+      const ban = await this.chatInfoRepository.findOneBy({ user_id: socket.data.user_id, room_id: foundRoom.id});
+      if (ban && ban.ban == true) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async checkMute(socket, room) {
+    const foundRoom = await this.chatRoomRepository.findOneBy({ name: room })
+    if (foundRoom) {
+      const mute = await this.chatInfoRepository.findOneBy({ user_id: socket.data.user_id, room_id: foundRoom.id});
+      if (mute && mute.mute) {
+        const endingTime: Date = new Date(mute.mute);
+        endingTime.setMinutes(endingTime.getMinutes() + 1);
+        if (endingTime.getTime() > new Date().getTime()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+	async adminUser(room, user, target) {
+		const foundRoom = await this.chatRoomRepository.findOneBy({ name: room });
+		const foundTarget = await this.userRepository.findOneBy({ intra_id: target });
+		if (!foundRoom || !foundTarget) {
+			return false;
+		}
+		if (foundRoom.owner_id == user) {
+			await this.chatInfoRepository.update({ room_id: foundRoom.id, user_id: foundTarget.id }, { admin: true });
+			return true;
+		}
+		return false;
+	}
+
+	async removeAdminUser(room, user, target) {
+		const foundRoom = await this.chatRoomRepository.findOneBy({ name: room });
+		const foundTarget = await this.userRepository.findOneBy({ intra_id: target });
+		if (!foundRoom || !foundTarget) {
+			return true;
+		}
+		if (foundRoom.owner_id == user) {
+			await this.chatInfoRepository.update({ room_id: foundRoom.id, user_id: foundTarget.id }, { admin: false });
+			return false;
+		}
+		return true;
+	}
 }

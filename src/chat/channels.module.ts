@@ -9,10 +9,11 @@ import { ChatInfoEntity } from "./entity/chatInfo.entity";
 import { UserEntity } from "src/user/entity/user.entity";
 import { FriendListEntity } from "src/user/entity/friendList.entity";
 import { UserStatsEntity } from "src/user/entity/userStats.entity";
+import { DmListEntity } from "./entity/dmList.entity";
 
 @Module({
 	imports: [
-	  TypeOrmModule.forFeature([UserEntity, ChatEntity, ChatRoomEntity, ChatInfoEntity, DMEntity]),
+	  TypeOrmModule.forFeature([UserEntity, ChatEntity, ChatRoomEntity, ChatInfoEntity, DMEntity, DmListEntity]),
 	],
 	controllers: [ChannelsController],
 	providers: [ChannelService],

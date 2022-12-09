@@ -7,7 +7,6 @@ import { MatchHistoryEntity } from 'src/user/entity/matchHistory.entity';
 import { UserEntity } from 'src/user/entity/user.entity';
 import { UserStatsEntity } from 'src/user/entity/userStats.entity';
 import { Repository } from 'typeorm';
-import { GameResultEntity } from './entities/gameResult.entity';
 import GameEngine from './lib/lib/GameEngine';
 
 @Injectable()
@@ -16,21 +15,19 @@ export class GameService {
     @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
     @InjectRepository(UserStatsEntity) private userStatsRepository: Repository<UserStatsEntity>,
     @InjectRepository(FriendListEntity) private friendListRepository: Repository<FriendListEntity>,
-    @InjectRepository(GameResultEntity) private gameResultRepository: Repository<GameResultEntity>,
     @InjectRepository(MatchHistoryEntity) private matchHistoryRepository: Repository<MatchHistoryEntity>
   ) {}
 
   private logger = new Logger(GameService.name)
 
   async insertGameResult(result) {
-    // const insertedResult = await (await this.gameResultRepository.insert(result)).raw[0];
-    // const foundResult = await this.gameResultRepository.findOneBy({ id: insertedResult.id })
     await this.matchHistoryRepository.insert({
       user_id: result.user1_id,
       opponent_id: result.user2_id,
       user_score: result.user1_score,
       opponent_score: result.user2_score,
       mode: result.mode,
+      win: (result.win == 1) ? true : false,
       playedAt: new Date(),
     })
     await this.matchHistoryRepository.insert({
@@ -39,6 +36,7 @@ export class GameService {
       user_score: result.user2_score,
       opponent_score: result.user1_score,
       mode: result.mode,
+      win: (result.win == 2) ? true : false,
       playedAt: new Date(),
     })
     const user1 = await this.userRepository.findOneBy({ id: result.user1_id });
@@ -146,11 +144,8 @@ export class GameService {
 
   async findSocketByIntra(nsp: Namespace, name) {
     const foundUser = await this.userRepository.findOneBy({ intra_id: name });
-    this.logger.log(`Name is ${name}`)
-    this.logger.log(foundUser)
     if (foundUser) {
       for (const s of nsp.sockets) {
-        this.logger.log(s[1].data);
         if (s[1].data.user_id && s[1].data.user_id == foundUser.id) {
           return s[1];
         } 

@@ -37,10 +37,8 @@ export class GameGateway
 
     @SubscribeMessage('queue')
     async queuePlayer(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-      this.logger.log('Someone queued!')
       const foundRoom = this.gameService.matchMaking(LadderGames);
       if (foundRoom) {
-        this.logger.log('MATCHED!')
         foundRoom.join(socket);
         this.nsp.to(foundRoom.getID()).emit('enter-room', await this.gameService.getInfoByGame(foundRoom, socket))
         this.nsp.to(foundRoom.getID()).emit('get', await this.gameService.getInfoByGame(foundRoom, socket))
@@ -53,19 +51,16 @@ export class GameGateway
 
     @SubscribeMessage('unqueue')
     unqueuePlayer(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-      this.logger.log('Someone unqueued!')
       const joinedGame = this.gameService.getJoinedGame(LadderGames, socket);
       if (joinedGame && joinedGame.disconnect(socket)) {
         if (LadderGames.findIndex((g)=>{return g == joinedGame}) >= 0) {
           LadderGames.splice(LadderGames.findIndex((g)=>{return g == joinedGame}), 1)
         }
       }
-      this.logger.log(LadderGames.length);
     }
 
     @SubscribeMessage('make-room')
     async makeRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-      this.logger.log(`Making new ${msg.access_modifier} room, ${msg.name}.`)
       if (msg.access_modifier == 'public') {
         const newRoomID = uuid();
         const creadtedGame = Games.push(new GameEngine(newRoomID, msg.name, msg.access_modifier, this.nsp));
@@ -75,7 +70,6 @@ export class GameGateway
         const creadtedGame = PrivateGames.push(new GameEngine(newRoomID, '', msg.access_modifier, this.nsp));
         const opponent = await this.gameService.findSocketByIntra(this.nsp, msg.name);
         if (opponent) {
-          this.logger.log('Found an opponent')
           opponent.emit('invite', await this.gameService.getInfoByGame(PrivateGames[creadtedGame - 1], opponent))
         }
         return newRoomID;
@@ -96,7 +90,6 @@ export class GameGateway
 
     @SubscribeMessage('leave')
     async removePlayer(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-      this.logger.log(`Someone leaving room!`)
       const joinedGame = this.gameService.getJoinedGame([...Games, ...PrivateGames, ...LadderGames], socket);
       if (joinedGame) {
         if (joinedGame.disconnect(socket)) {
@@ -132,7 +125,6 @@ export class GameGateway
     }
 
     async handleDisconnect(@ConnectedSocket() socket: Socket) {
-      this.logger.log(`Someone disconnected!`)
       const joinedGame = this.gameService.getJoinedGameBySocket([...Games, ...PrivateGames, ...LadderGames], socket);
       if (joinedGame) {
         if (joinedGame.disconnect(socket)) {

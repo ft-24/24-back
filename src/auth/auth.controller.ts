@@ -20,8 +20,6 @@ export class AuthController {
     @UseGuards(ftOAuthGuard)
     @Redirect()
     async loggedin(@User() user) {
-        this.logger.log('Logged in succesfully!');
-
         const userData = await this.authService.signup(user);
 
         if (userData.two_factor_Auth) {

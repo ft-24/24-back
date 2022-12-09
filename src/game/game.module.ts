@@ -4,13 +4,12 @@ import { FriendListEntity } from 'src/user/entity/friendList.entity';
 import { MatchHistoryEntity } from 'src/user/entity/matchHistory.entity';
 import { UserEntity } from 'src/user/entity/user.entity';
 import { UserStatsEntity } from 'src/user/entity/userStats.entity';
-import { GameResultEntity } from './entities/gameResult.entity';
 import { GameGateway } from './game.gateway';
 import { GameService } from './game.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, UserStatsEntity, FriendListEntity, GameResultEntity, MatchHistoryEntity])
+    TypeOrmModule.forFeature([UserEntity, UserStatsEntity, FriendListEntity, MatchHistoryEntity])
   ],
   controllers: [],
   providers: [GameGateway, GameService],

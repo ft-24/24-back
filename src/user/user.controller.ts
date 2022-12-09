@@ -33,9 +33,9 @@ export class UserController {
 
   @Get('profile/:intra_id')
   @UseGuards(JwtAuthGuard)
-  async getFriendsProfile(@Res() res, @Param('intra_id') id) {
+  async getFriendsProfile(@Res() res, @User() user, @Param('intra_id') id) {
     return res.status(200).send(
-      await this.userService.getFriendsProfile(id)
+      await this.userService.getFriendsProfile(user, id)
     );
   }
 
@@ -55,7 +55,7 @@ export class UserController {
     if (nickname) {
       await this.userService.changeUserNickname(user, nickname)
     }
-    if (two_auth) {
+    if (two_auth !== undefined) {
       await this.userService.changeUserTFA(user, two_auth)
     }
     if (arcade) {
@@ -84,6 +84,16 @@ export class UserController {
     const { intra_id } = body;
     return res.status(200).send(
       await this.userService.removeUserFriend(user, intra_id),
+    );
+  }
+
+
+  @Put('block')
+  @UseGuards(JwtAuthGuard)
+  async blockUser(@Res() res, @User() user, @Body() body) {
+    const { intra_id, is_blocked } = body;
+    return res.status(200).send(
+      await this.userService.blockUser(user, intra_id, is_blocked),
     );
   }
 }

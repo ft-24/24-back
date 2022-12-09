@@ -53,26 +53,35 @@ export class ChatGateway
 
   @SubscribeMessage('dm-message')
   async handleDM(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-    this.logger.log(msg);
     if (msg.msg && msg.receiver) {
       const insertedMSG = await this.chatService.saveDM(socket, msg);
       const to = await this.chatService.findRoom(msg.receiver);
-      this.logger.log(to);
       socket.to(socket.data.room).emit("dm-message", insertedMSG)
-      socket.to(to).emit('dm-message', insertedMSG)
+      if (!await this.chatService.isBlockedByNickname(msg.receiver, socket.data.user_id)) {
+        socket.to(to).emit('dm-message', insertedMSG)
+      }
     }
   }
 
   @SubscribeMessage('message')
-    async handleMessage(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+  async handleMessage(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+    if (await this.chatService.checkBan(socket, msg.receiver)) { return };
+    if (await this.chatService.checkMute(socket, msg.receiver)) { return };
     if (msg.msg && msg.receiver) {
       const insertedMSG = await this.chatService.saveChat(socket, msg);
-      socket.to(msg.receiver).emit('message', insertedMSG);
-      // const clients = this.nsp.adapter.rooms.get(msg.receiver)
-      // for (const c of clients) {
-
-      // }
+      const clients = await this.nsp.in(msg.receiver).fetchSockets();
+      for (const c of clients) {
+        if (c.data.room != socket.data.room && !await this.chatService.isBlocked(c.data.user_id, socket.data.user_id)) {
+          c.emit('message', insertedMSG);
+        }
+      }
     }
+  }
+
+  @SubscribeMessage('dm-create-room')
+  async createDM(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+    const dmStatus = await this.chatService.createDM(socket, msg.intra_id);
+    return dmStatus;
   }
 
   @SubscribeMessage('create-room')
@@ -85,31 +94,53 @@ export class ChatGateway
   }
 
   @SubscribeMessage('edit-room')
-  editRoom() {
+  async editRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+    const roomStatus = await this.chatService.updateNewRoom(socket, msg);
+    socket.emit('fetch')
+    socket.to(msg.name).emit('fetch')
+    return (roomStatus);
   }
 
   @SubscribeMessage('join-room')
   async joinRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
-    this.logger.log(`Someone joined room named ${msg.name}!`)
-
     await this.chatService.joinChat(socket.data.user_id, msg.name);
-    const messages = await this.chatService.getChat(msg.name);
-    const user = await this.chatService.getUserBySocket(socket);
+    const messages = await this.chatService.getChat(socket, msg.name);
     socket.emit('messages', messages);
-    if (user) {
-      socket.to(msg.name).emit('fetch', user.nickname);
-    }
+    socket.to(msg.name).emit('fetch');
     socket.join(msg.name);
+  }
+
+  @SubscribeMessage('dm-join-room')
+  async dmJoinRoom(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+    const to = await this.chatService.findTo(msg.intra);
+    const messages = await this.chatService.getDM(socket, msg.intra);
+    if (to) {
+      socket.to(socket.data.room).emit("dm-messages", messages)
+      if (!await this.chatService.isBlockedByIntra(msg.intra, socket.data.user_id)) {
+        socket.to(to).emit('dm-messages', messages)
+      }
+    }
   }
 
   @SubscribeMessage('leave-room')
   async leaveRoom(@ConnectedSocket() socket:Socket, @MessageBody() msg) {
-    this.logger.log(`Someone leaved room named ${msg.name}!`)
-
-    const user = await this.chatService.getUserBySocket(socket);
-    if (user) {
-      socket.to(msg.name).emit('fetch', user.nickname);
-    }
+    socket.to(msg.name).emit('fetch');
     socket.leave(msg.name)
+  }
+
+  @SubscribeMessage('admin')
+  async adminUser(@ConnectedSocket() socket: Socket, @MessageBody() msg) {
+    if (!msg.room_name || !msg.intra_id || msg.is_admin === undefined) {
+      return false;
+    }
+    let ret: boolean;
+    if (msg.is_admin) {
+      ret = await this.chatService.removeAdminUser(msg.room_name, socket.data.user_id, msg.intra_id);
+    } else {
+      ret = await this.chatService.adminUser(msg.room_name, socket.data.user_id, msg.intra_id);
+    }
+    const to = await this.chatService.findRoomByIntra(msg.intra_id);
+    socket.to(msg.room_name).emit('fetch');
+    return ret;
   }
 }
