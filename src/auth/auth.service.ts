@@ -71,7 +71,7 @@ export class AuthService {
   //   }
   // }
 
-  async signup(user): Promise<UserEntity> {
+  async signup(user): Promise<any> {
     try {
       const foundUser = await this.userRepository.findOneBy({ intra_id: user.intra_id });
       if (!foundUser) {
@@ -86,7 +86,9 @@ export class AuthService {
           user_id: insertedUser.raw[0].id,
         }
         await this.userStatsRepository.insert(newUserStats);
-        return insertedUser.raw[0];
+        return ({
+			id: insertedUser.raw[0].id,
+		});
       }
       const foundUserStats = await this.userStatsRepository.findOneBy({ user_id: foundUser.id });
       if (!foundUserStats) {
