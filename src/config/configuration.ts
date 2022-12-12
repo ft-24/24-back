@@ -1,8 +1,11 @@
 export default () => ({
 
     url: process.env.SERVER_URL,
+    client_url: process.env.CLIENT_URL,
 
     db: {
+        hostname: process.env.DATABASE_HOSTNAME,
+        port: process.env.DATABASE_PORT,
         username: process.env.DATABASE_USERNAME,
         password: process.env.DATABASE_PASSWORD,
         database: process.env.DATABASE_DATABASE,
